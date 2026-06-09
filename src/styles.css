@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 42 33% 98%;
+  --foreground: 224 24% 16%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 24% 16%;
+  --primary: 174 68% 28%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 212 18% 92%;
+  --secondary-foreground: 224 24% 16%;
+  --muted: 210 20% 94%;
+  --muted-foreground: 222 11% 43%;
+  --accent: 45 96% 52%;
+  --accent-foreground: 224 24% 16%;
+  --destructive: 0 72% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 18% 84%;
+  --input: 214 18% 84%;
+  --ring: 174 68% 28%;
+}
+
+body {
+  margin: 0;
+  background:
+    linear-gradient(180deg, hsl(42 33% 98%), hsl(180 24% 96%));
+  color: hsl(var(--foreground));
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.calendar-grid {
+  grid-template-columns: 72px repeat(var(--day-count), minmax(132px, 1fr));
+}
