@@ -102,6 +102,10 @@ export async function closeMeeting(id: string): Promise<MeetingRecord> {
   return mapMeeting(result.rows[0]);
 }
 
+export async function deleteMeeting(id: string): Promise<void> {
+  await getPool().query("delete from meetings where id = $1", [id]);
+}
+
 export async function upsertVote(meetingId: string, participantId: string, data: VoteData): Promise<VoteRecord> {
   const id = crypto.randomUUID();
   const result = await getPool().query(

@@ -117,6 +117,11 @@ export const closeVotingRequestSchema = z.object({
 });
 export type CloseVotingRequest = z.infer<typeof closeVotingRequestSchema>;
 
+export const deleteMeetingRequestSchema = z.object({
+  editId: z.string().uuid(),
+});
+export type DeleteMeetingRequest = z.infer<typeof deleteMeetingRequestSchema>;
+
 export type ApiError = {
   error: {
     code: string;

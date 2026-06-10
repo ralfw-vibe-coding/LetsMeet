@@ -12,10 +12,11 @@ import {
   PanelLeftOpen,
   Plus,
   Save,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type {
   CreateMeetingRequest,
@@ -408,6 +409,10 @@ function OrganizerView({ language, meetingId, editId }: { language: Language; me
   const [view, setView] = useState<OrganizerMeetingView | null>(null);
   const [error, setError] = useState("");
   const [organizerMode, setOrganizerMode] = useState<"propose" | "evaluate">("evaluate");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletedTitle, setDeletedTitle] = useState<string | null>(null);
+  const deleteButtonRef = useRef<HTMLButtonElement | null>(null);
+  const deletingRef = useRef(false);
 
   async function load() {
     try {
@@ -424,6 +429,50 @@ function OrganizerView({ language, meetingId, editId }: { language: Language; me
   useEffect(() => {
     if (view?.meeting.closedAt) setOrganizerMode("evaluate");
   }, [view?.meeting.closedAt]);
+
+  useEffect(() => {
+    if (!confirmingDelete) return;
+    const handle = window.setTimeout(() => setConfirmingDelete(false), 3000);
+    const onPointerDown = (event: PointerEvent) => {
+      if (!deleteButtonRef.current?.contains(event.target as Node)) setConfirmingDelete(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.clearTimeout(handle);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [confirmingDelete]);
+
+  async function handleDeleteClick() {
+    if (deletedTitle !== null) return;
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    try {
+      const title = view?.meeting.data.title ?? "";
+      await api.deleteMeeting(meetingId, editId);
+      setConfirmingDelete(false);
+      setDeletedTitle(title);
+      window.setTimeout(() => window.location.assign("/"), 2000);
+    } catch (err) {
+      deletingRef.current = false;
+      setConfirmingDelete(false);
+      setError(err instanceof Error ? err.message : t.meetingNotFound);
+    }
+  }
+
+  if (deletedTitle !== null) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="rounded-lg border border-border bg-card px-6 py-5 text-base font-medium shadow-xl">
+          {language === "de" ? `Veranstaltung „${deletedTitle}“ gelöscht` : `Meeting “${deletedTitle}” deleted`}
+        </div>
+      </div>
+    );
+  }
 
   if (error) return <StateMessage title={t.meetingNotFound} detail={error} />;
   if (!view) return <StateMessage title="LetsMeet" detail="Loading" />;
@@ -464,12 +513,30 @@ function OrganizerView({ language, meetingId, editId }: { language: Language; me
               {t.evaluateMode}
             </ViewChip>
           </div>
-          {!view.meeting.closedAt && organizerMode === "evaluate" && (
-            <Button variant="primary" onClick={() => api.closeVoting(meetingId, editId).then(load)}>
-              <Lock className="h-4 w-4" />
-              {t.closeVoting}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {!view.meeting.closedAt && organizerMode === "evaluate" && (
+              <Button variant="primary" onClick={() => api.closeVoting(meetingId, editId).then(load)}>
+                <Lock className="h-4 w-4" />
+                {t.closeVoting}
+              </Button>
+            )}
+            <button
+              ref={deleteButtonRef}
+              type="button"
+              onClick={handleDeleteClick}
+              title={confirmingDelete ? t.confirmDelete : t.deleteMeeting}
+              aria-label={confirmingDelete ? t.confirmDelete : t.deleteMeeting}
+              className={cn(
+                "inline-flex h-9 items-center gap-1 rounded-md border px-3 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-ring",
+                confirmingDelete
+                  ? "border-red-500 bg-red-500 text-white hover:bg-red-600"
+                  : "border-border text-muted-foreground hover:border-red-300 hover:bg-red-50 hover:text-red-600",
+              )}
+            >
+              <Trash2 className="h-4 w-4" />
+              {confirmingDelete && <span className="font-bold">?</span>}
+            </button>
+          </div>
         </div>
       </div>
 

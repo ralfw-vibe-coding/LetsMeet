@@ -44,6 +44,8 @@ export const api = {
     request(`/meetings/${meetingId}/votes`, { method: "POST", body: JSON.stringify(body) }),
   closeVoting: (meetingId: string, editId: string) =>
     request<MeetingRecord>(`/meetings/${meetingId}/close`, { method: "POST", body: JSON.stringify({ editId }) }),
+  deleteMeeting: (meetingId: string, editId: string) =>
+    request<{ deleted: boolean }>(`/meetings/${meetingId}`, { method: "DELETE", body: JSON.stringify({ editId }) }),
   setFinalProposals: (meetingId: string, body: SetFinalProposalsRequest) =>
     request<MeetingRecord>(`/meetings/${meetingId}/final-proposals`, { method: "PUT", body: JSON.stringify(body) }),
 };

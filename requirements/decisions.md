@@ -339,5 +339,17 @@ Diese Datei ergaenzt die Produktvision in `requirements/app vision.md`. Sie hael
 - Die Teilnehmeransicht soll grundlegend responsive und auch mobil bedienbar sein.
 - Auf sehr kleinen Bildschirmen darf die Veranstalteransicht darauf hinweisen, dass Kalenderbearbeitung am Desktop besser funktioniert.
 - Es gibt im MVP keine Impressums- oder Datenschutzseite.
-- Es gibt im MVP keine Admin- oder Wartungsfunktionen zum Auflisten oder Loeschen von Meetings.
-- Meetings koennen im MVP auch mit Bearbeitungslink nicht geloescht werden.
+- Es gibt im MVP keine Admin- oder Wartungsfunktionen zum Auflisten von Meetings.
+
+## Veranstaltung Loeschen
+
+- Der Veranstalter kann eine bereits gespeicherte Veranstaltung ueber den Bearbeitungslink loeschen.
+- Loeschen ist erst sinnvoll und moeglich, wenn die Veranstaltung schon gespeichert wurde; der Loeschen-Button erscheint daher nur in der Veranstalteransicht.
+- Der Loeschen-Button steht als Lucide-`Trash2`-Icon-Button rechts neben `Abstimmung schliessen`.
+- Der Loeschen-Button bleibt auch nach dem Schliessen der Abstimmung sichtbar.
+- Loeschen erfordert eine Bestaetigung in zwei Schritten: Ein erster Klick zeigt visuelles Feedback mit einem `?`, ein zweiter Klick loescht endgueltig.
+- Bleibt der zweite Klick aus, faellt der Button nach kurzer Zeit in den Ausgangszustand zurueck.
+- Beim Loeschen werden die Veranstaltung und alle zugehoerigen Votes entfernt.
+- Das Loeschen erfolgt ueber `DELETE /api/meetings/:meetingId` mit `editId` im Body; ohne passende `editId` schlaegt es mit `Meeting not found` fehl.
+- Nach dem Loeschen wird kurz ein Overlay `Veranstaltung "<Titel>" geloescht` angezeigt.
+- Danach landet der Veranstalter auf einer leeren neuen Veranstaltung (`/`).

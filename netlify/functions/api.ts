@@ -5,6 +5,7 @@ import { AppError, notFound } from "../../src/server/errors";
 import { buildFinalIcs } from "../../src/server/ics";
 import * as CloseVoting from "../../src/server/Slices/CloseVoting";
 import * as CreateMeeting from "../../src/server/Slices/CreateMeeting";
+import * as DeleteMeeting from "../../src/server/Slices/DeleteMeeting";
 import * as GetOrganizerMeeting from "../../src/server/Slices/GetOrganizerMeeting";
 import * as GetParticipantMeeting from "../../src/server/Slices/GetParticipantMeeting";
 import * as SetFinalProposals from "../../src/server/Slices/SetFinalProposals";
@@ -90,6 +91,10 @@ export const handler: Handler = async (event) => {
       if (method === "PUT" && segments.length === 2) {
         const request = updateMeetingRequestSchema.parse(await readJson(event));
         return json(200, await UpdateMeeting.process(meetingId, request));
+      }
+
+      if (method === "DELETE" && segments.length === 2) {
+        return json(200, await DeleteMeeting.process(meetingId, await readJson(event)));
       }
 
       if (method === "POST" && segments[2] === "pin") {
