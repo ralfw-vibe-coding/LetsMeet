@@ -122,6 +122,37 @@ export const deleteMeetingRequestSchema = z.object({
 });
 export type DeleteMeetingRequest = z.infer<typeof deleteMeetingRequestSchema>;
 
+export const adminPinSchema = z.string().regex(/^[0-9a-zA-Z]{6}$/);
+
+export const appSettingsSchema = z.object({
+  adminPinHash: z.string().optional(),
+});
+export type AppSettings = z.infer<typeof appSettingsSchema>;
+
+export const adminChangePinRequestSchema = z.object({
+  newPin: adminPinSchema,
+});
+export type AdminChangePinRequest = z.infer<typeof adminChangePinRequestSchema>;
+
+export const adminDeleteMeetingsRequestSchema = z.object({
+  meetingIds: z.array(z.string().uuid()).min(1),
+});
+export type AdminDeleteMeetingsRequest = z.infer<typeof adminDeleteMeetingsRequestSchema>;
+
+export type AdminMeetingSummary = {
+  id: string;
+  title: string;
+  createdAt: string;
+  participantCount: number;
+  lastProposalStartUtc: string | null;
+  durationMinutes: number;
+  expired: boolean;
+};
+
+export type AdminMeetingsView = {
+  meetings: AdminMeetingSummary[];
+};
+
 export type ApiError = {
   error: {
     code: string;

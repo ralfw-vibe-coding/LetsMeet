@@ -1,4 +1,5 @@
 import type {
+  AdminMeetingsView,
   CreateMeetingRequest,
   MeetingRecord,
   OrganizerMeetingView,
@@ -48,4 +49,20 @@ export const api = {
     request<{ deleted: boolean }>(`/meetings/${meetingId}`, { method: "DELETE", body: JSON.stringify({ editId }) }),
   setFinalProposals: (meetingId: string, body: SetFinalProposalsRequest) =>
     request<MeetingRecord>(`/meetings/${meetingId}/final-proposals`, { method: "PUT", body: JSON.stringify(body) }),
+  adminVerifyPin: (pin: string) =>
+    request<{ verified: boolean }>("/admin/verify", { method: "POST", body: JSON.stringify({ pin }) }),
+  adminListMeetings: (pin: string) =>
+    request<AdminMeetingsView>("/admin/meetings", { headers: { "x-admin-pin": pin } }),
+  adminDeleteMeetings: (pin: string, meetingIds: string[]) =>
+    request<{ deleted: number }>("/admin/delete", {
+      method: "POST",
+      headers: { "x-admin-pin": pin },
+      body: JSON.stringify({ meetingIds }),
+    }),
+  adminChangePin: (pin: string, newPin: string) =>
+    request<{ changed: boolean }>("/admin/pin", {
+      method: "POST",
+      headers: { "x-admin-pin": pin },
+      body: JSON.stringify({ newPin }),
+    }),
 };

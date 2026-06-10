@@ -1,5 +1,5 @@
 import pg from "pg";
-import { meetingDataSchema, type MeetingData, type MeetingRecord, type VoteData, type VoteRecord, voteDataSchema } from "../shared/domain";
+import { type AppSettings, appSettingsSchema, meetingDataSchema, type MeetingData, type MeetingRecord, type VoteData, type VoteRecord, voteDataSchema } from "../shared/domain";
 
 const { Pool } = pg;
 
@@ -104,6 +104,46 @@ export async function closeMeeting(id: string): Promise<MeetingRecord> {
 
 export async function deleteMeeting(id: string): Promise<void> {
   await getPool().query("delete from meetings where id = $1", [id]);
+}
+
+export async function deleteMeetings(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const result = await getPool().query("delete from meetings where id = any($1::uuid[])", [ids]);
+  return result.rowCount ?? 0;
+}
+
+export type MeetingWithVoteCount = { meeting: MeetingRecord; participantCount: number };
+
+export async function listMeetingsWithVoteCounts(): Promise<MeetingWithVoteCount[]> {
+  const result = await getPool().query(
+    `select m.*, coalesce(v.cnt, 0)::int as participant_count
+     from meetings m
+     left join (select meeting_id, count(*) as cnt from votes group by meeting_id) v
+       on v.meeting_id = m.id
+     order by m.created_at asc`,
+  );
+  return result.rows.map((row) => ({
+    meeting: mapMeeting(row),
+    participantCount: Number(row.participant_count),
+  }));
+}
+
+const APP_SETTINGS_ID = "app";
+
+export async function getAppSettings(): Promise<AppSettings> {
+  const result = await getPool().query("select data from app_settings where id = $1", [APP_SETTINGS_ID]);
+  return result.rowCount ? appSettingsSchema.parse(result.rows[0].data) : {};
+}
+
+export async function updateAppSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
+  const next: AppSettings = { ...(await getAppSettings()), ...patch };
+  await getPool().query(
+    `insert into app_settings (id, data)
+     values ($1, $2)
+     on conflict (id) do update set data = excluded.data, updated_at = now()`,
+    [APP_SETTINGS_ID, next],
+  );
+  return next;
 }
 
 export async function upsertVote(meetingId: string, participantId: string, data: VoteData): Promise<VoteRecord> {

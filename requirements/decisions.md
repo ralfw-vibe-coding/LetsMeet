@@ -339,7 +339,6 @@ Diese Datei ergaenzt die Produktvision in `requirements/app vision.md`. Sie hael
 - Die Teilnehmeransicht soll grundlegend responsive und auch mobil bedienbar sein.
 - Auf sehr kleinen Bildschirmen darf die Veranstalteransicht darauf hinweisen, dass Kalenderbearbeitung am Desktop besser funktioniert.
 - Es gibt im MVP keine Impressums- oder Datenschutzseite.
-- Es gibt im MVP keine Admin- oder Wartungsfunktionen zum Auflisten von Meetings.
 
 ## Veranstaltung Loeschen
 
@@ -353,3 +352,26 @@ Diese Datei ergaenzt die Produktvision in `requirements/app vision.md`. Sie hael
 - Das Loeschen erfolgt ueber `DELETE /api/meetings/:meetingId` mit `editId` im Body; ohne passende `editId` schlaegt es mit `Meeting not found` fehl.
 - Nach dem Loeschen wird kurz ein Overlay `Veranstaltung "<Titel>" geloescht` angezeigt.
 - Danach landet der Veranstalter auf einer leeren neuen Veranstaltung (`/`).
+
+## Admin-Sicht
+
+- Es gibt eine Admin-Sicht unter der eigenen URL `/admin`.
+- Die Admin-Sicht listet alle Meetings auf, aufsteigend sortiert nach Anlagedatum.
+- Pro Meeting werden Titel, Anlagedatum, Anzahl Teilnehmer (gespeicherte Votes) und der Startzeitpunkt des spaetesten Terminvorschlags gezeigt.
+- Ein Status-Chip zeigt `abgelaufen` bzw. `aktiv`.
+- Abgelaufen bedeutet: der Startzeitpunkt des spaetesten Terminvorschlags liegt in der Vergangenheit.
+- Datums- und Zeitangaben werden in der Browser-Zeitzone und gemaess gewaehlter UI-Sprache dargestellt.
+- Der Admin kann ueber Checkboxen ein oder mehrere Meetings auswaehlen; ein Header-Checkbox waehlt alle aus oder ab.
+- Mit `Auswahl loeschen` werden alle ausgewaehlten Meetings inkl. ihrer Votes geloescht.
+- Loeschen erfordert eine Bestaetigung in zwei Schritten (analog zur Veranstaltung-Loeschung); der Button zeigt die Anzahl der Auswahl.
+- Die Admin-Sicht ist mit einer PIN gesichert.
+- Beim ersten Aufruf, solange keine PIN gesetzt ist, lautet die PIN `000000`.
+- Admin-PINs sind genau sechs Zeichen aus Ziffern oder Buchstaben (case-sensitive).
+- Der Admin kann die PIN auf der Seite durch doppelte Eingabe (neue PIN plus Wiederholung) aendern.
+- Die PIN wird serverseitig als SHA-256-Hash gespeichert.
+- Anwendungseinstellungen liegen in der Tabelle `app_settings` als ein einzelnes `jsonb`-Dokument (`data`), analog zu `meetings.data`, damit sie sich leicht erweitern lassen.
+- Der Admin-PIN-Hash steht im Settings-Dokument unter `adminPinHash`.
+- Jeder geschuetzte Admin-Request schickt die PIN im Header `x-admin-pin`; der Server prueft sie bei jedem Aufruf.
+- Die verifizierte PIN wird im Browser in `sessionStorage` gemerkt, gilt also pro Browser-Session.
+- Admin-Endpunkte: `POST /api/admin/verify`, `GET /api/admin/meetings`, `POST /api/admin/delete`, `POST /api/admin/pin`.
+- Eine fehlende oder falsche Admin-PIN fuehrt zu `403 forbidden`.

@@ -17,8 +17,9 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, FormEvent, ReactNode } from "react";
 import type {
+  AdminMeetingsView,
   CreateMeetingRequest,
   Language,
   MeetingData,
@@ -37,11 +38,13 @@ import { cn } from "./lib";
 
 type Route =
   | { name: "new" }
+  | { name: "admin" }
   | { name: "participant"; meetingId: string }
   | { name: "organizer"; meetingId: string; editId: string };
 
 function parseRoute(): Route {
   const parts = window.location.pathname.replace(/^\/+|\/+$/g, "").split("/");
+  if (parts[0] === "admin") return { name: "admin" };
   if (parts[0] === "m" && parts[1] && parts[2] === "edit" && parts[3]) {
     return { name: "organizer", meetingId: parts[1], editId: parts[3] };
   }
@@ -104,6 +107,7 @@ export function App() {
 
       <main className="mx-auto max-w-7xl px-5 py-6">
         {route.name === "new" && <MeetingEditor language={language} mode="create" />}
+        {route.name === "admin" && <AdminView language={language} />}
         {route.name === "organizer" && <OrganizerView language={language} meetingId={route.meetingId} editId={route.editId} />}
         {route.name === "participant" && <ParticipantView language={language} meetingId={route.meetingId} />}
       </main>
@@ -1415,6 +1419,266 @@ function StateMessage({ title, detail }: { title: string; detail: string }) {
     <div className="rounded-lg border border-border bg-card p-6">
       <h1 className="text-xl font-semibold">{title}</h1>
       <p className="mt-2 text-muted-foreground">{detail}</p>
+    </div>
+  );
+}
+
+const ADMIN_PIN_STORAGE = "letsmeet.adminPin";
+
+function AdminView({ language }: { language: Language }) {
+  const t = useTexts(language);
+  const locale = language === "de" ? "de-DE" : "en-US";
+  const timeZone = getBrowserTimeZone();
+  const [pin, setPin] = useState<string>("");
+  const [authed, setAuthed] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [view, setView] = useState<AdminMeetingsView | null>(null);
+  const [pinInput, setPinInput] = useState("");
+  const [gateError, setGateError] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [toast, setToast] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [repeatPin, setRepeatPin] = useState("");
+  const [pinFormError, setPinFormError] = useState("");
+
+  async function loadWith(candidate: string): Promise<boolean> {
+    try {
+      const data = await api.adminListMeetings(candidate);
+      setView(data);
+      setPin(candidate);
+      setAuthed(true);
+      sessionStorage.setItem(ADMIN_PIN_STORAGE, candidate);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem(ADMIN_PIN_STORAGE);
+    if (!stored) {
+      setReady(true);
+      return;
+    }
+    void loadWith(stored).then((ok) => {
+      if (!ok) sessionStorage.removeItem(ADMIN_PIN_STORAGE);
+      setReady(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!confirmingDelete) return;
+    const handle = window.setTimeout(() => setConfirmingDelete(false), 3000);
+    return () => window.clearTimeout(handle);
+  }, [confirmingDelete]);
+
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 2400);
+  }
+
+  async function submitGate(event: FormEvent) {
+    event.preventDefault();
+    setGateError("");
+    if (!(await loadWith(pinInput))) setGateError(t.adminWrongPin);
+  }
+
+  function toggleSelected(id: string) {
+    setConfirmingDelete(false);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setConfirmingDelete(false);
+    const ids = view?.meetings.map((meeting) => meeting.id) ?? [];
+    setSelected((prev) => (prev.size === ids.length ? new Set() : new Set(ids)));
+  }
+
+  async function deleteSelected() {
+    if (selected.size === 0) return;
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    try {
+      await api.adminDeleteMeetings(pin, [...selected]);
+      setConfirmingDelete(false);
+      setSelected(new Set());
+      await loadWith(pin);
+      showToast(t.adminDeleted);
+    } catch (error) {
+      setConfirmingDelete(false);
+      showToast(error instanceof Error ? error.message : "Error");
+    }
+  }
+
+  async function submitPinChange(event: FormEvent) {
+    event.preventDefault();
+    setPinFormError("");
+    if (!/^[0-9a-zA-Z]{6}$/.test(newPin)) {
+      setPinFormError(t.adminPinFormat);
+      return;
+    }
+    if (newPin !== repeatPin) {
+      setPinFormError(t.adminPinMismatch);
+      return;
+    }
+    try {
+      await api.adminChangePin(pin, newPin);
+      setPin(newPin);
+      sessionStorage.setItem(ADMIN_PIN_STORAGE, newPin);
+      setNewPin("");
+      setRepeatPin("");
+      showToast(t.adminPinChanged);
+    } catch (error) {
+      setPinFormError(error instanceof Error ? error.message : "Error");
+    }
+  }
+
+  if (!ready) return <StateMessage title={t.adminTitle} detail="…" />;
+
+  if (!authed) {
+    return (
+      <div className="mx-auto max-w-sm">
+        <form onSubmit={submitGate} className="space-y-4 rounded-lg border border-border bg-card p-6">
+          <div className="flex items-center gap-2">
+            <Lock className="h-5 w-5 text-primary" />
+            <h1 className="text-lg font-semibold">{t.adminTitle}</h1>
+          </div>
+          <Field label={t.adminPinPrompt}>
+            <input
+              className="w-full rounded-md border border-input px-3 py-2 tracking-widest"
+              value={pinInput}
+              onChange={(event) => setPinInput(event.target.value)}
+              maxLength={6}
+              autoFocus
+            />
+          </Field>
+          {gateError && <p className="text-sm text-destructive">{gateError}</p>}
+          <Button type="submit" variant="primary" className="w-full">
+            {t.verify}
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
+  const meetings = view?.meetings ?? [];
+  const allSelected = meetings.length > 0 && selected.size === meetings.length;
+
+  return (
+    <div className="space-y-5">
+      {toast && (
+        <div className="fixed right-5 top-5 z-50 rounded-md border border-border bg-card px-4 py-3 text-sm font-medium shadow-lg">
+          {toast}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">{t.adminTitle}</h1>
+        <button
+          type="button"
+          onClick={deleteSelected}
+          disabled={selected.size === 0}
+          title={confirmingDelete ? t.adminConfirmDelete : t.adminDeleteSelected}
+          className={cn(
+            "inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
+            confirmingDelete
+              ? "border-red-500 bg-red-500 text-white hover:bg-red-600"
+              : "border-border text-muted-foreground hover:border-red-300 hover:bg-red-50 hover:text-red-600",
+          )}
+        >
+          <Trash2 className="h-4 w-4" />
+          {(confirmingDelete ? t.adminConfirmDelete : t.adminDeleteSelected) + (selected.size ? ` (${selected.size})` : "")}
+        </button>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border bg-card">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <th className="w-10 px-3 py-3">
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label={t.adminSelectAll} />
+              </th>
+              <th className="px-3 py-3">{t.adminColTitle}</th>
+              <th className="px-3 py-3">{t.adminColCreated}</th>
+              <th className="px-3 py-3 text-right">{t.adminColParticipants}</th>
+              <th className="px-3 py-3">{t.adminColLastProposal}</th>
+              <th className="px-3 py-3">{t.adminColStatus}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {meetings.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+                  {t.adminNoMeetings}
+                </td>
+              </tr>
+            )}
+            {meetings.map((meeting) => (
+              <tr key={meeting.id} className="border-b border-border last:border-0 hover:bg-muted/40">
+                <td className="px-3 py-3">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(meeting.id)}
+                    onChange={() => toggleSelected(meeting.id)}
+                    aria-label={meeting.title}
+                  />
+                </td>
+                <td className="px-3 py-3 font-medium">{meeting.title}</td>
+                <td className="px-3 py-3 text-muted-foreground">{formatDateTime(meeting.createdAt, locale, timeZone)}</td>
+                <td className="px-3 py-3 text-right">{meeting.participantCount}</td>
+                <td className="px-3 py-3 text-muted-foreground">
+                  {meeting.lastProposalStartUtc ? formatDateTime(meeting.lastProposalStartUtc, locale, timeZone) : "—"}
+                </td>
+                <td className="px-3 py-3">
+                  {meeting.expired ? (
+                    <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+                      {t.adminExpired}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                      {t.adminActive}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <form onSubmit={submitPinChange} className="max-w-md space-y-3 rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Lock className="h-4 w-4 text-primary" />
+          {t.adminChangePin}
+        </div>
+        <Field label={t.adminNewPin}>
+          <input
+            className="w-full rounded-md border border-input px-3 py-2 tracking-widest"
+            value={newPin}
+            onChange={(event) => setNewPin(event.target.value)}
+            maxLength={6}
+          />
+        </Field>
+        <Field label={t.adminRepeatPin}>
+          <input
+            className="w-full rounded-md border border-input px-3 py-2 tracking-widest"
+            value={repeatPin}
+            onChange={(event) => setRepeatPin(event.target.value)}
+            maxLength={6}
+          />
+        </Field>
+        {pinFormError && <p className="text-sm text-destructive">{pinFormError}</p>}
+        <Button type="submit" variant="primary">
+          {t.adminChangePin}
+        </Button>
+      </form>
     </div>
   );
 }

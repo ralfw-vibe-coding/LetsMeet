@@ -1,8 +1,13 @@
 import type { Handler, HandlerEvent } from "@netlify/functions";
 import { ZodError } from "zod";
+import { requireAdmin } from "../../src/server/admin";
 import { findMeeting } from "../../src/server/db";
 import { AppError, notFound } from "../../src/server/errors";
 import { buildFinalIcs } from "../../src/server/ics";
+import * as AdminChangePin from "../../src/server/Slices/AdminChangePin";
+import * as AdminDeleteMeetings from "../../src/server/Slices/AdminDeleteMeetings";
+import * as AdminListMeetings from "../../src/server/Slices/AdminListMeetings";
+import * as AdminVerifyPin from "../../src/server/Slices/AdminVerifyPin";
 import * as CloseVoting from "../../src/server/Slices/CloseVoting";
 import * as CreateMeeting from "../../src/server/Slices/CreateMeeting";
 import * as DeleteMeeting from "../../src/server/Slices/DeleteMeeting";
@@ -69,6 +74,27 @@ export const handler: Handler = async (event) => {
   try {
     const method = event.httpMethod.toUpperCase();
     const segments = routePath(event);
+
+    if (segments[0] === "admin") {
+      if (method === "POST" && segments[1] === "verify") {
+        return json(200, await AdminVerifyPin.process(await readJson(event)));
+      }
+
+      const adminPin = event.headers["x-admin-pin"] ?? "";
+      await requireAdmin(adminPin);
+
+      if (method === "GET" && segments[1] === "meetings") {
+        return json(200, await AdminListMeetings.process());
+      }
+
+      if (method === "POST" && segments[1] === "delete") {
+        return json(200, await AdminDeleteMeetings.process(await readJson(event)));
+      }
+
+      if (method === "POST" && segments[1] === "pin") {
+        return json(200, await AdminChangePin.process(adminPin, await readJson(event)));
+      }
+    }
 
     if (method === "POST" && segments.join("/") === "meetings") {
       const request = createMeetingRequestSchema.parse(await readJson(event));
