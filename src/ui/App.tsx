@@ -2,13 +2,14 @@ import { addDays, format } from "date-fns";
 import {
   CalendarDays,
   Check,
-  Clipboard,
   Clock,
   Copy,
   Download,
   Globe2,
   Languages,
   Lock,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Save,
   Users,
@@ -130,6 +131,8 @@ function MeetingEditor({
   const [draft, setDraft] = useState<CreateMeetingRequest>(() => initial ?? emptyMeeting());
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
+  const canSaveMeeting = draft.title.trim().length > 0 && draft.proposals.length > 0 && !busy;
 
   useEffect(() => {
     if (initial) setDraft(initial);
@@ -160,13 +163,25 @@ function MeetingEditor({
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
-      <section className="rounded-lg border border-border bg-card p-4">
-        <div className="mb-4 flex items-center gap-2">
-          <CalendarDays className="h-5 w-5 text-primary" />
-          <h1 className="text-lg font-semibold">{mode === "create" ? t.newMeeting : t.update}</h1>
+    <div className={cn("grid gap-5", detailsCollapsed ? "lg:grid-cols-[52px_1fr]" : "lg:grid-cols-[360px_1fr]")}>
+      <section className={cn("rounded-lg border border-border bg-card", detailsCollapsed ? "p-2" : "p-4")}>
+        <div className={cn("mb-4 flex items-center justify-between gap-2", detailsCollapsed && "mb-0 justify-end")}>
+          {!detailsCollapsed && (
+            <div className="flex min-w-0 items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              <h1 className="text-lg font-semibold">{t.meetingDetails}</h1>
+            </div>
+          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            title={detailsCollapsed ? t.showDetails : t.hideDetails}
+            onClick={() => setDetailsCollapsed(!detailsCollapsed)}
+          >
+            {detailsCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
         </div>
-        <div className="space-y-4">
+        {!detailsCollapsed && <div className="space-y-4">
           <Field label={t.title}>
             <input className="w-full rounded-md border border-input px-3 py-2" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
           </Field>
@@ -251,17 +266,17 @@ function MeetingEditor({
               {t.includeWeekends}
             </label>
           </div>
-          <Button className="w-full" variant="primary" disabled={busy} onClick={save}>
-            <Save className="h-4 w-4" />
-            {mode === "create" ? t.save : t.update}
-          </Button>
           {message && <div className="rounded-md bg-muted px-3 py-2 text-sm">{message}</div>}
-        </div>
+        </div>}
       </section>
 
       <section className="min-w-0 rounded-lg border border-border bg-card p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">{t.addProposalHint}</p>
+        <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+          <p className="whitespace-pre-line text-sm text-muted-foreground">{t.addProposalHint}</p>
+          <Button size="sm" variant="primary" disabled={!canSaveMeeting} onClick={save}>
+            <Save className="h-4 w-4" />
+            {mode === "create" ? t.save : t.update}
+          </Button>
         </div>
         <OrganizerCalendarGrid language={language} draft={draft} setDraft={setDraft} proposalResults={proposalResults} />
       </section>
@@ -427,42 +442,34 @@ function OrganizerView({ language, meetingId, editId }: { language: Language; me
               {view.knownParticipantCount} {t.participants}
             </div>
           </div>
-          <div className="flex gap-2">
-            {!view.meeting.closedAt && (
-              <Button variant="primary" onClick={() => api.closeVoting(meetingId, editId).then(load)}>
-                <Lock className="h-4 w-4" />
-                {t.closeVoting}
-              </Button>
-            )}
-            {view.meeting.closedAt && (
-              <a href={`/api/meetings/${meetingId}/final.ics`}>
-                <Button>
-                  <Download className="h-4 w-4" />
-                  {t.downloadIcs}
-                </Button>
-              </a>
-            )}
-          </div>
         </div>
         <div className="mt-4 grid gap-2 md:grid-cols-2">
           <CopyLine label={t.votingLink} value={votingLink} />
           <CopyLine label={t.editLink} value={editLink} />
         </div>
-        <div className="mt-4 inline-flex rounded-md border border-border bg-muted p-1">
-          {!view.meeting.closedAt && (
-            <Button
-              variant={organizerMode === "propose" ? "primary" : "ghost"}
-              onClick={() => setOrganizerMode("propose")}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex rounded-full border border-border bg-muted p-1">
+            {!view.meeting.closedAt && (
+              <ViewChip
+                active={organizerMode === "propose"}
+                onClick={() => setOrganizerMode("propose")}
+              >
+                {t.proposeMode}
+              </ViewChip>
+            )}
+            <ViewChip
+              active={organizerMode === "evaluate"}
+              onClick={() => setOrganizerMode("evaluate")}
             >
-              {t.proposeMode}
+              {t.evaluateMode}
+            </ViewChip>
+          </div>
+          {!view.meeting.closedAt && organizerMode === "evaluate" && (
+            <Button variant="primary" onClick={() => api.closeVoting(meetingId, editId).then(load)}>
+              <Lock className="h-4 w-4" />
+              {t.closeVoting}
             </Button>
           )}
-          <Button
-            variant={organizerMode === "evaluate" ? "primary" : "ghost"}
-            onClick={() => setOrganizerMode("evaluate")}
-          >
-            {t.evaluateMode}
-          </Button>
         </div>
       </div>
 
@@ -484,6 +491,32 @@ function OrganizerView({ language, meetingId, editId }: { language: Language; me
         <OrganizerFeedbackCalendar language={language} view={view} meetingId={meetingId} editId={editId} onSaved={load} />
       )}
     </div>
+  );
+}
+
+function ViewChip({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={cn(
+        "h-8 rounded-full px-4 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-ring",
+        active
+          ? "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
+      )}
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -509,18 +542,21 @@ function OrganizerFeedbackCalendar({
   const closed = Boolean(view.meeting.closedAt);
   const detailResult = detailProposalId ? view.proposalResults.find((result) => result.id === detailProposalId) : undefined;
   const finalProposals = view.meeting.data.proposals.filter((proposal) => selectedFinalIds.includes(proposal.id));
+  const savedFinalProposals = view.meeting.data.proposals.filter((proposal) => view.meeting.data.finalProposalIds.includes(proposal.id));
+  const hasSavedFinalDates = savedFinalProposals.length > 0;
 
   useEffect(() => {
     setSelectedFinalIds(view.meeting.data.finalProposalIds);
   }, [view.meeting.data.finalProposalIds]);
 
-  async function saveFinalDates() {
+  async function saveFinalDates(finalProposalIds: string[]) {
     setBusySavingFinals(true);
     try {
-      await api.setFinalProposals(meetingId, { editId, finalProposalIds: selectedFinalIds });
+      await api.setFinalProposals(meetingId, { editId, finalProposalIds });
       await onSaved();
       showToast(t.finalDatesSaved);
     } catch (error) {
+      setSelectedFinalIds(view.meeting.data.finalProposalIds);
       showToast(error instanceof Error ? error.message : "Error");
     } finally {
       setBusySavingFinals(false);
@@ -543,11 +579,12 @@ function OrganizerFeedbackCalendar({
   }
 
   function toggleFinal(proposalId: string) {
-    setSelectedFinalIds(
-      selectedFinalIds.includes(proposalId)
-        ? selectedFinalIds.filter((id) => id !== proposalId)
-        : [...selectedFinalIds, proposalId],
-    );
+    if (busySavingFinals) return;
+    const nextFinalIds = selectedFinalIds.includes(proposalId)
+      ? selectedFinalIds.filter((id) => id !== proposalId)
+      : [...selectedFinalIds, proposalId];
+    setSelectedFinalIds(nextFinalIds);
+    void saveFinalDates(nextFinalIds);
   }
 
   return (
@@ -559,60 +596,70 @@ function OrganizerFeedbackCalendar({
       )}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">{t.currentResults}</h2>
-          <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-            <Users className="h-4 w-4" />
-            {view.knownParticipantCount} {t.participants}
-          </div>
+          {closed ? (
+            <p className="max-w-2xl text-sm text-muted-foreground">{t.finalSelectionInstruction}</p>
+          ) : (
+            <>
+              <h2 className="text-lg font-semibold">{t.currentResults}</h2>
+              <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="h-4 w-4" />
+                {view.knownParticipantCount} {t.participants}
+              </div>
+            </>
+          )}
         </div>
-        {closed && (
-          <Button variant="primary" disabled={busySavingFinals} onClick={saveFinalDates}>
-            <Save className="h-4 w-4" />
-            {busySavingFinals ? t.save : t.saveFinalDates}
-          </Button>
-        )}
       </div>
-      <OrganizerFeedbackGrid
-        language={language}
-        view={view}
-        selectedFinalIds={selectedFinalIds}
-        onOpenDetails={(proposalId, anchor) => {
-          setDetailProposalId(proposalId);
-          setDetailAnchor(anchor);
-        }}
-      />
-      {closed && (
-        <div className="mt-4 rounded-lg border border-border bg-white p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-base font-semibold">{t.finalDates}</h3>
-            {finalProposals.length > 0 && (
-              <div className="flex gap-2">
-                <Button onClick={copyFinalDates}>
-                  <Clipboard className="h-4 w-4" />
-                  {t.copyResult}
-                </Button>
-                <a href={`/api/meetings/${meetingId}/final.ics`}>
-                  <Button>
-                    <Download className="h-4 w-4" />
-                    {t.downloadIcs}
+      <div className={cn("grid gap-4", closed && "xl:grid-cols-[minmax(0,1fr)_320px]")}>
+        <OrganizerFeedbackGrid
+          language={language}
+          view={view}
+          selectedFinalIds={selectedFinalIds}
+          onOpenDetails={(proposalId, anchor) => {
+            setDetailProposalId((currentProposalId) => {
+              if (currentProposalId === proposalId) {
+                setDetailAnchor(null);
+                return null;
+              }
+
+              setDetailAnchor(anchor);
+              return proposalId;
+            });
+          }}
+        />
+        {closed && (
+          <div className="rounded-lg border border-border bg-white p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-base font-semibold">{t.finalDates}</h3>
+              {finalProposals.length > 0 && (
+                <div className="flex shrink-0 gap-1.5">
+                  <Button size="icon" className="h-8 w-8" title={t.copyResult} onClick={copyFinalDates}>
+                    <Copy className="h-3.5 w-3.5" />
                   </Button>
-                </a>
+                  {hasSavedFinalDates && (
+                    <a href={`/api/meetings/${meetingId}/final.ics`}>
+                      <Button size="sm" className="h-8 px-2" title={t.downloadIcs}>
+                        <Download className="h-3.5 w-3.5" />
+                        .ics
+                      </Button>
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+            {finalProposals.length === 0 ? (
+              <div className="text-sm text-muted-foreground">{t.noFinalDates}</div>
+            ) : (
+              <div className="grid gap-2">
+                {finalProposals.map((proposal) => (
+                  <div key={proposal.id} className="rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium">
+                    {formatDateTime(proposal.startsAtUtc, language, view.meeting.data.editorTimeZone)}
+                  </div>
+                ))}
               </div>
             )}
           </div>
-          {finalProposals.length === 0 ? (
-            <div className="text-sm text-muted-foreground">{t.noFinalDates}</div>
-          ) : (
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {finalProposals.map((proposal) => (
-                <div key={proposal.id} className="rounded-md border border-border bg-muted px-3 py-2 text-sm font-medium">
-                  {formatDateTime(proposal.startsAtUtc, language, view.meeting.data.editorTimeZone)}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
       {detailResult && detailAnchor && (
         <ProposalDetailsOverlay
           language={language}
@@ -871,9 +918,8 @@ function FinalPicker({ language, view, meetingId, editId, onSaved }: { language:
           <div className="w-72">
             <TimeZonePicker value={copyZone} onChange={setCopyZone} language={language} />
           </div>
-          <Button onClick={copyResult}>
-            <Clipboard className="h-4 w-4" />
-            {t.copyResult}
+          <Button size="icon" className="h-8 w-8" title={t.copyResult} onClick={copyResult}>
+            <Copy className="h-3.5 w-3.5" />
           </Button>
           <Button variant="primary" onClick={save}>
             <Save className="h-4 w-4" />
@@ -1058,9 +1104,9 @@ function VoteForm({ language, view, participantId, reload }: { language: Languag
             ))}
           </div>
           <a className="mt-3 inline-flex" href={`/api/meetings/${view.meetingId}/final.ics`}>
-            <Button>
-              <Download className="h-4 w-4" />
-              {t.downloadIcs}
+            <Button size="sm" className="h-8 px-2" title={t.downloadIcs}>
+              <Download className="h-3.5 w-3.5" />
+              .ics
             </Button>
           </a>
         </section>
@@ -1427,12 +1473,14 @@ function proposalNumberFor(proposals: Proposal[], proposalId: string): number {
 function overlayPosition(anchor: DOMRect): CSSProperties {
   const margin = 12;
   const offset = 14;
-  const width = Math.min(Math.max(anchor.width, 160), window.innerWidth - margin * 2);
+  const width = Math.min(Math.max(anchor.width, 220), 320, window.innerWidth - margin * 2);
   const left = Math.min(Math.max(margin, anchor.left + offset), window.innerWidth - margin - width);
-  const top = Math.min(Math.max(margin, anchor.bottom + 8), window.innerHeight - margin - 320);
+  const top = Math.max(margin, anchor.bottom + 8);
 
   return {
     left,
+    maxHeight: `calc(100vh - ${top + margin}px)`,
+    overflowY: "auto",
     top,
     width,
   };

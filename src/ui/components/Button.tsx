@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "../lib";
 
 type Variant = "primary" | "secondary" | "ghost" | "destructive";
-type Size = "md" | "icon";
+type Size = "sm" | "md" | "icon";
 
 export function Button({
   className,
@@ -19,6 +19,7 @@ export function Button({
         variant === "secondary" && "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80",
         variant === "ghost" && "border-transparent bg-transparent hover:bg-muted",
         variant === "destructive" && "border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        size === "sm" && "h-8 px-3 text-xs",
         size === "md" && "h-10 px-4",
         size === "icon" && "h-9 w-9 p-0",
         className,

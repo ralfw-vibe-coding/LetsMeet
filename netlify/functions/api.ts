@@ -21,12 +21,33 @@ function json(statusCode: number, body: unknown) {
   };
 }
 
-function text(statusCode: number, body: string, contentType: string) {
+function text(statusCode: number, body: string, contentType: string, headers: Record<string, string> = {}) {
   return {
     statusCode,
-    headers: { "content-type": contentType },
+    headers: { "content-type": contentType, ...headers },
     body,
   };
+}
+
+function contentDispositionFilename(title: string): string {
+  const filename = `${safeFilenamePart(title)} - final dates.ics`;
+  const asciiFallback = asciiFilename(filename);
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
+function safeFilenamePart(value: string): string {
+  return value
+    .replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim() || "LetsMeet";
+}
+
+function asciiFilename(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7e]/g, "_")
+    .replace(/["\\]/g, "_");
 }
 
 function routePath(event: HandlerEvent): string[] {
@@ -92,7 +113,9 @@ export const handler: Handler = async (event) => {
         if (!meeting) throw notFound();
         const ics = buildFinalIcs(meeting);
         if (!ics) throw notFound();
-        return text(200, ics, "text/calendar; charset=utf-8");
+        return text(200, ics, "text/calendar; charset=utf-8", {
+          "content-disposition": contentDispositionFilename(meeting.data.title),
+        });
       }
     }
 

@@ -91,6 +91,9 @@ Diese Datei ergaenzt die Produktvision in `requirements/app vision.md`. Sie hael
 - Ein Meeting entsteht erst durch explizites Speichern.
 - Nach dem ersten Speichern entstehen der Abstimmungslink und der Bearbeitungslink.
 - Auch spaetere Aenderungen des Veranstalters werden explizit gespeichert.
+- Der Speichern-Button fuer Meetingdaten und Vorschlaege sitzt im Kalenderbereich, nicht unter den Meetingdetails.
+- Der Speichern-Button ist deaktiviert, solange kein Titel vergeben wurde oder kein Terminvorschlag existiert.
+- Die Meetingdetails-Spalte kann im Veranstaltermodus ueber ein kleines Icon ein- und ausgeklappt werden.
 - Es gibt kein Feld fuer die Anzahl finaler Termine.
 - Der Veranstalter kann in der Beschreibung mitteilen, um wie viele Termine es geht.
 - Die Dauer gilt gemeinsam fuer alle Terminvorschlaege eines Meetings.
@@ -259,6 +262,7 @@ Diese Datei ergaenzt die Produktvision in `requirements/app vision.md`. Sie hael
 - Das Speichern finaler Termine gibt sichtbares Feedback.
 - Im Auswertemodus erscheint nach dem Schliessen eine kompakte Liste der aktuell ausgewaehlten finalen Termine.
 - Wenn keine finalen Termine ausgewaehlt sind, wird das explizit angezeigt.
+- ICS-Download-Buttons werden erst angezeigt, wenn finale Termine gespeichert sind.
 - Es gibt keine Soll-Liste von Teilnehmern und daher keine Anzeige fehlender Teilnehmer.
 - Die Hitliste der Vorschlaege wird nach Zustimmungszahl absteigend und danach nach Datum/Uhrzeit aufsteigend sortiert.
 - Im Kalender sieht der Veranstalter pro Vorschlag die Zustimmungszahl.
@@ -284,13 +288,22 @@ Diese Datei ergaenzt die Produktvision in `requirements/app vision.md`. Sie hael
 - Nach dem Schliessen koennen Titel, Beschreibung, Dauer, PIN, Bearbeitungs-Zeitzone und Eingabebereich im MVP nicht mehr geaendert werden.
 - Nach dem Schliessen kann der Veranstalter finale Termine markieren oder aendern.
 - Finale Termine koennen erst nach dem Schliessen markiert werden.
+- Finale Termine werden bei jeder Markierung oder Entfernung einer Markierung automatisch gespeichert.
+- Es gibt keinen separaten Button `Finale Termine speichern`.
+- Die Veranstalter-Auswertung zeigt nach dem Schliessen den Hinweis: `Select your final dates. Send a copy of the selection to participants including an .ics file.`
 - Der Veranstalter kann eine beliebige Anzahl von Vorschlaegen als final markieren.
 - `SetFinalProposals` darf eine leere Liste speichern.
 - `SetFinalProposals` akzeptiert nur existierende Vorschlaege.
 - Teilnehmer sehen finale Termine prominent.
 - Nicht finale Vorschlaege koennen nach der finalen Auswahl ausgegraut angezeigt werden.
 - Finale Termine haben visuell Vorrang vor der Zustimmungsstaerke.
+- In der Veranstalter-Auswertung stehen finale Termine in einem eigenen Panel rechts neben dem Kalender.
+- Finale Termine werden im Panel untereinander angezeigt.
 - Die kopierbare Ergebnisliste enthaelt nur Meetingtitel und finale Termine, keine Teilnehmerdetails.
+- Der Button zum Kopieren der Ergebnisliste wird als reiner Icon-Button dargestellt.
+- Der Kopieren-Button verwendet das Lucide-Icon `Copy`.
+- Der `.ics`-Download verwendet das Lucide-Icon `Download` plus den Text `.ics`.
+- In der Veranstalter-Kopfzeile beim Meetingtitel gibt es keinen separaten `.ics`-Download.
 
 ## Kalenderexport
 
@@ -305,6 +318,7 @@ Diese Datei ergaenzt die Produktvision in `requirements/app vision.md`. Sie hael
 - Die `.ics`-Datei enthaelt keine Teilnehmerliste und keine Teilnehmerdetails.
 - Die `.ics`-Datei ist in Teilnehmer- und Veranstalteransicht downloadbar.
 - Der stabile Download-Endpunkt ist z. B. `/api/meetings/:meetingId/final.ics`.
+- Der Dateiname des `.ics`-Downloads lautet `<Meetingtitel> - final dates.ics`.
 - Der `.ics`-Endpunkt ist ohne PIN erreichbar, wenn man die Meeting-ID kennt.
 - Vor dem Schliessen oder ohne finale Termine liefert der `.ics`-Endpunkt keinen Kalender, z. B. 404.
 - Es gibt im MVP keine Vorschau der Ergebnisliste oder `.ics`-Datei vor dem Schliessen.
@@ -313,6 +327,13 @@ Diese Datei ergaenzt die Produktvision in `requirements/app vision.md`. Sie hael
 
 - Es gibt im MVP keinen Dark Mode.
 - Der visuelle Fokus liegt auf einem hellen, modernen Look.
+- Die Modi `Vorschlagen` und `Auswerten` werden als kompakte View-Chips dargestellt, nicht als normale Aktionsbuttons.
+- `Abstimmung schliessen` ist nur im Auswertungsmodus sichtbar.
+- Das Details-Panel ist mit `Eckdaten` ueberschrieben.
+- Der Eingabebereich fuer Kalendergrenzen heisst `Zeitrahmen`.
+- Der Hinweis zum Anlegen und Entfernen von Terminvorschlaegen wird im Kalenderkopf als kurzer zweizeiliger Text angezeigt.
+- Das Details-Klappicon steht rechts im Details-Kasten auf Hoehe der Kalender-Speicheraktion.
+- Das Vorschlagsdetails-Overlay kann per Escape, X oder erneutem Klick auf den Vorschlagskopf geschlossen werden.
 - Der Fokus liegt zuerst auf Desktop.
 - Die Veranstalteransicht wird vor allem fuer Desktop und Tablet optimiert.
 - Die Teilnehmeransicht soll grundlegend responsive und auch mobil bedienbar sein.
