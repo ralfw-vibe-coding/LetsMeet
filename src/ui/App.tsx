@@ -827,7 +827,7 @@ function OrganizerFeedbackRow({
 }) {
   return (
     <>
-      <div className="sticky left-0 z-10 h-16 border-t border-border bg-card px-2 py-2 text-xs text-muted-foreground">{time}</div>
+      <div className="sticky left-0 z-10 h-8 border-t border-border bg-card px-2 py-1 text-xs text-muted-foreground">{time}</div>
       {days.map((day) => {
         const startsAtUtc = zonedWallTimeToUtcIso(day.date, time, zone);
         const proposal = findCoveringProposal(view.meeting.data.proposals, startsAtUtc, view.meeting.data.durationMinutes);
@@ -840,7 +840,7 @@ function OrganizerFeedbackRow({
           <div
             key={`${day.date}-${time}`}
             className={cn(
-              "h-16 border-l border-t border-border px-2 text-left text-xs transition",
+              "h-8 border-l border-t border-border px-2 text-left text-xs transition",
               day.isWeekend && "bg-accent/10",
               day.isMonday && "border-l-4 border-l-primary",
               proposal && "border-slate-500 shadow-inner",
@@ -862,7 +862,7 @@ function OrganizerFeedbackRow({
                     {result.approvalCount}/{participantTotal} ({Math.round(result.approvalRatio * 100)}%)
                   </span>
                 </span>
-                <span className="mx-1 mt-2 block h-2 rounded-full bg-white/80">
+                <span className="mx-1 mt-1 block h-2 rounded-full bg-white/80">
                   <span className="block h-2 rounded-full bg-amber-400" style={{ width: `${result.approvalRatio * 100}%` }} />
                 </span>
                 </button>
