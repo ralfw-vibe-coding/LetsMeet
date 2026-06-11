@@ -1,0 +1,1 @@
+Auch Teilnehmer sollen bei der Auswahl von Vorschlägen sehen, wieviele Antworten es dazu schon gegeben hat. Sie unterscheiden sich darin also nicht mehr vom Veranstalter.

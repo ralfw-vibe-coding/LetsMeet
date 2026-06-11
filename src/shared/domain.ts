@@ -70,6 +70,12 @@ export type OrganizerMeetingView = {
   proposalResults: ProposalResult[];
 };
 
+export type ProposalApproval = {
+  id: string;
+  approvalCount: number;
+  approvalRatio: number;
+};
+
 export type ParticipantMeetingView = {
   role: "participant";
   meetingId: string;
@@ -82,6 +88,8 @@ export type ParticipantMeetingView = {
   participantVote: VoteRecord | null;
   pinRequired: boolean;
   pinVerified: boolean;
+  knownParticipantCount: number;
+  proposalApprovals: ProposalApproval[];
 };
 
 export const createMeetingRequestSchema = meetingDataSchema.omit({ finalProposalIds: true }).extend({

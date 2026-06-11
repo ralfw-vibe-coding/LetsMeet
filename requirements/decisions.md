@@ -242,6 +242,9 @@ Diese Datei ergaenzt die Produktvision in `requirements/app vision.md`. Sie hael
 - Ein Teilnehmer kann erst abstimmen, wenn er ein Pseudonym eingegeben hat.
 - Das Pseudonym-Feld wird als Pflichtfeld markiert.
 - Nach dem Speichern einer Stimme wird ein kurzes Overlay-Feedback angezeigt.
+- Nach dem Speichern ist der Abstimmen-Button deaktiviert.
+- Er wird erst wieder aktiviert, wenn der Teilnehmer etwas aendert (Pseudonym oder Vorschlagsauswahl).
+- Das gilt auch beim erneuten Oeffnen der Seite durch einen wiedererkannten Teilnehmer.
 
 ## Auswertung
 
@@ -275,7 +278,8 @@ Diese Datei ergaenzt die Produktvision in `requirements/app vision.md`. Sie hael
 - Beispiel: 3 Zustimmungen bei 4 bekannten Teilnehmern ergeben 75 Prozent Zustimmung.
 - Bei 0 bekannten Teilnehmern wird Zustimmung neutral dargestellt, ohne visuelle Hervorhebung und mit 0 Stimmen.
 - Die Veranstalteransicht zeigt vor dem Schliessen bereits Auswertung und Teilnehmerdetails.
-- Teilnehmer sehen vor dem Schliessen keine laufende Hitliste und keine Teilnehmer-Auswertung.
+- Teilnehmer sehen bei der Auswahl pro Vorschlag die Zustimmungszahlen (`Ja/Gesamt`, in der Liste auch Prozent) wie der Veranstalter.
+- Teilnehmer sehen aber keine Teilnehmerdetails: wer abgestimmt hat, bleibt dem Veranstalter vorbehalten.
 - Teilnehmer sehen nach dem Schliessen finale Termine, aber keine Teilnehmerdetails.
 - Teilnehmer sehen nach dem Schliessen ihre eigene abgegebene Auswahl lesend, wenn derselbe Browser wiedererkannt wird.
 

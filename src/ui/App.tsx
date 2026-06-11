@@ -28,6 +28,7 @@ import type {
   OrganizerMeetingView,
   ParticipantMeetingView,
   Proposal,
+  ProposalApproval,
   ProposalResult,
 } from "../shared/domain";
 import { formatPin, normalizePin } from "../shared/domain";
@@ -1250,10 +1251,22 @@ function VoteForm({ language, view, participantId, reload }: { language: Languag
   const [name, setName] = useState(view.participantVote?.data.participantName ?? "");
   const [selected, setSelected] = useState<string[]>(closed ? (view.participantVote?.data.selectedProposalIds ?? []) : []);
   const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [viewMode, setViewMode] = useState<ProposalViewMode>("calendar");
   const [toast, setToast] = useState("");
   const finalIds = new Set(view.finalProposalIds);
-  const canSubmit = name.trim().length > 0 && !busy;
+  const hasVoted = Boolean(view.participantVote);
+  const canSubmit = name.trim().length > 0 && !busy && (!hasVoted || dirty);
+
+  function changeName(next: string) {
+    setName(next);
+    setDirty(true);
+  }
+
+  function changeSelected(next: string[]) {
+    setSelected(next);
+    setDirty(true);
+  }
 
   async function submit() {
     if (!canSubmit) return;
@@ -1262,6 +1275,7 @@ function VoteForm({ language, view, participantId, reload }: { language: Languag
     try {
       await api.submitVote(view.meetingId, { participantId, participantName: name, selectedProposalIds: selected });
       await reload();
+      setDirty(false);
       showToast(t.voteSaved);
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Error");
@@ -1314,15 +1328,15 @@ function VoteForm({ language, view, participantId, reload }: { language: Languag
       <section className="rounded-lg border border-border bg-card p-4">
         <div className="mb-4 grid gap-3 md:grid-cols-[minmax(260px,360px)_auto_auto]">
           <Field label={`${t.name} *`}>
-            <input className="w-full rounded-md border border-input px-3 py-2" value={name} disabled={closed} onChange={(e) => setName(e.target.value)} />
+            <input className="w-full rounded-md border border-input px-3 py-2" value={name} disabled={closed} onChange={(e) => changeName(e.target.value)} />
           </Field>
           {!closed && (
             <div className="flex items-end gap-2">
-              <Button onClick={() => setSelected(view.proposals.map((proposal) => proposal.id))}>
+              <Button onClick={() => changeSelected(view.proposals.map((proposal) => proposal.id))}>
                 <Check className="h-4 w-4" />
                 {t.all}
               </Button>
-              <Button onClick={() => setSelected([])}>
+              <Button onClick={() => changeSelected([])}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -1346,9 +1360,11 @@ function VoteForm({ language, view, participantId, reload }: { language: Languag
             proposals={view.proposals}
             durationMinutes={view.durationMinutes}
             selected={selected}
-            setSelected={setSelected}
+            setSelected={changeSelected}
             disabled={closed}
             finalProposalIds={view.finalProposalIds}
+            approvals={view.proposalApprovals}
+            knownParticipantCount={view.knownParticipantCount}
           />
         ) : (
           <ParticipantProposalList
@@ -1356,9 +1372,11 @@ function VoteForm({ language, view, participantId, reload }: { language: Languag
             proposals={view.proposals}
             durationMinutes={view.durationMinutes}
             selected={selected}
-            setSelected={setSelected}
+            setSelected={changeSelected}
             disabled={closed}
             finalProposalIds={view.finalProposalIds}
+            approvals={view.proposalApprovals}
+            knownParticipantCount={view.knownParticipantCount}
           />
         )}
       </section>
@@ -1374,6 +1392,8 @@ function ParticipantCalendar({
   setSelected,
   disabled,
   finalProposalIds,
+  approvals,
+  knownParticipantCount,
 }: {
   language: Language;
   proposals: Proposal[];
@@ -1382,11 +1402,14 @@ function ParticipantCalendar({
   setSelected: (selected: string[]) => void;
   disabled: boolean;
   finalProposalIds: string[];
+  approvals: ProposalApproval[];
+  knownParticipantCount: number;
 }) {
   const zone = getBrowserTimeZone();
   const days = participantCalendarDays(proposals, zone, language);
   const slots = participantTimeSlots(proposals, durationMinutes, zone);
   const finalIds = new Set(finalProposalIds);
+  const approvalById = new Map(approvals.map((approval) => [approval.id, approval]));
   const proposalNumbers = new Map(
     [...proposals]
       .sort((a, b) => a.startsAtUtc.localeCompare(b.startsAtUtc))
@@ -1425,6 +1448,8 @@ function ParticipantCalendar({
             disabled={disabled}
             finalIds={finalIds}
             proposalNumbers={proposalNumbers}
+            approvalById={approvalById}
+            knownParticipantCount={knownParticipantCount}
             zone={zone}
             onToggle={toggle}
           />
@@ -1443,6 +1468,8 @@ function ParticipantCalendarRow({
   disabled,
   finalIds,
   proposalNumbers,
+  approvalById,
+  knownParticipantCount,
   zone,
   onToggle,
 }: {
@@ -1454,6 +1481,8 @@ function ParticipantCalendarRow({
   disabled: boolean;
   finalIds: Set<string>;
   proposalNumbers: Map<string, number>;
+  approvalById: Map<string, ProposalApproval>;
+  knownParticipantCount: number;
   zone: string;
   onToggle: (proposalId: string) => void;
 }) {
@@ -1485,9 +1514,14 @@ function ParticipantCalendarRow({
             onClick={() => proposal && onToggle(proposal.id)}
           >
             {isProposalStart && proposal ? (
-              <span className="flex items-center justify-center gap-1 truncate">
-                {active ? <Check className="h-4 w-4 shrink-0" /> : null}
-                <span className="truncate">#{proposalNumbers.get(proposal.id)}</span>
+              <span className="flex items-center justify-between gap-1">
+                <span className="flex min-w-0 items-center gap-1">
+                  {active ? <Check className="h-4 w-4 shrink-0" /> : null}
+                  <span className="truncate">#{proposalNumbers.get(proposal.id)}</span>
+                </span>
+                <span className="shrink-0 tabular-nums">
+                  {approvalById.get(proposal.id)?.approvalCount ?? 0}/{knownParticipantCount}
+                </span>
               </span>
             ) : null}
           </button>
@@ -1505,6 +1539,8 @@ function ParticipantProposalList({
   setSelected,
   disabled,
   finalProposalIds,
+  approvals,
+  knownParticipantCount,
 }: {
   language: Language;
   proposals: Proposal[];
@@ -1513,11 +1549,14 @@ function ParticipantProposalList({
   setSelected: (selected: string[]) => void;
   disabled: boolean;
   finalProposalIds: string[];
+  approvals: ProposalApproval[];
+  knownParticipantCount: number;
 }) {
   const zone = getBrowserTimeZone();
   const window = proposalDayWindow(proposals, durationMinutes, zone);
   const groups = groupProposalsByDay(proposals, durationMinutes, zone, language, window);
   const finalIds = new Set(finalProposalIds);
+  const approvalById = new Map(approvals.map((approval) => [approval.id, approval]));
 
   function toggle(proposalId: string) {
     if (disabled) return;
@@ -1556,6 +1595,12 @@ function ParticipantProposalList({
                     lengthSlots={entry.lengthSlots}
                     segmentClassName={cn(active ? "bg-primary" : "bg-slate-400")}
                   />
+                  <span className="shrink-0 text-sm font-semibold tabular-nums">
+                    {(() => {
+                      const approval = approvalById.get(entry.proposal.id);
+                      return `${approval?.approvalCount ?? 0}/${knownParticipantCount} (${Math.round((approval?.approvalRatio ?? 0) * 100)}%)`;
+                    })()}
+                  </span>
                   <span className="w-7 shrink-0 text-right text-xs text-muted-foreground">#{entry.number}</span>
                 </button>
               );
