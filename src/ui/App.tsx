@@ -396,7 +396,7 @@ function Row({
               <span className="flex items-center justify-center gap-1 truncate">
                 <Check className="h-4 w-4 shrink-0" />
                 <span className="truncate">
-                  Vorschlag #{proposalNumbers.get(proposal.id)}
+                  #{proposalNumbers.get(proposal.id)}
                   {proposalResult ? ` · ${proposalResult.approvalCount}/${proposalResult.approvedBy.length + proposalResult.declinedBy.length}` : ""}
                 </span>
               </span>
@@ -857,7 +857,7 @@ function OrganizerFeedbackRow({
                   onClick={(event) => onOpenDetails(proposal.id, event.currentTarget.getBoundingClientRect())}
                 >
                 <span className="flex items-center justify-between gap-2 px-1 font-semibold">
-                  <span className="truncate">Vorschlag #{proposalNumbers.get(proposal.id)}</span>
+                  <span className="truncate">#{proposalNumbers.get(proposal.id)}</span>
                   <span className="shrink-0">
                     {result.approvalCount}/{participantTotal} ({Math.round(result.approvalRatio * 100)}%)
                   </span>
@@ -920,7 +920,7 @@ function ProposalDetailsOverlay({
       <div className="pointer-events-auto fixed rounded-lg border border-border bg-card p-3 shadow-xl" style={position}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-xs font-semibold uppercase text-primary">Vorschlag #{proposalNumber}</div>
+            <div className="text-xs font-semibold uppercase text-primary">#{proposalNumber}</div>
             <h3 className="mt-1 text-lg font-semibold">{t.proposalDetails}</h3>
           </div>
           <Button size="icon" variant="ghost" title={t.close} onClick={onClose}>
@@ -1025,7 +1025,7 @@ function ProposalResultCards({
           <>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-xs font-semibold uppercase text-primary">Vorschlag #{index + 1}</div>
+                <div className="text-xs font-semibold uppercase text-primary">#{index + 1}</div>
                 <div className="mt-1 font-medium">{formatDateTime(proposal.startsAtUtc, language, zone)}</div>
                 <div className="text-sm text-muted-foreground">
                   {formatDateTime(addMinutesIso(proposal.startsAtUtc, view.meeting.data.durationMinutes), language, zone)}
@@ -1344,7 +1344,7 @@ function ParticipantCalendarRow({
             {isProposalStart && proposal ? (
               <span className="flex items-center justify-center gap-1 truncate">
                 {active ? <Check className="h-4 w-4 shrink-0" /> : null}
-                <span className="truncate">Vorschlag #{proposalNumbers.get(proposal.id)}</span>
+                <span className="truncate">#{proposalNumbers.get(proposal.id)}</span>
               </span>
             ) : null}
           </button>

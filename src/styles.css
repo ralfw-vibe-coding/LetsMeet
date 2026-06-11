@@ -39,5 +39,5 @@ select {
 }
 
 .calendar-grid {
-  grid-template-columns: 72px repeat(var(--day-count), minmax(132px, 1fr));
+  grid-template-columns: 72px repeat(var(--day-count), 132px);
 }
