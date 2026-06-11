@@ -7,6 +7,7 @@ import {
   Download,
   Globe2,
   Languages,
+  List,
   Lock,
   PanelLeftClose,
   PanelLeftOpen,
@@ -591,6 +592,58 @@ function ViewChip({
   );
 }
 
+type ProposalViewMode = "calendar" | "list";
+
+function ViewModeToggle({ mode, onChange, language }: { mode: ProposalViewMode; onChange: (mode: ProposalViewMode) => void; language: Language }) {
+  const t = useTexts(language);
+  return (
+    <div className="inline-flex rounded-full border border-border bg-muted p-1">
+      <ViewChip active={mode === "calendar"} onClick={() => onChange("calendar")}>
+        <span className="inline-flex items-center gap-1.5">
+          <CalendarDays className="h-4 w-4" />
+          {t.viewCalendar}
+        </span>
+      </ViewChip>
+      <ViewChip active={mode === "list"} onClick={() => onChange("list")}>
+        <span className="inline-flex items-center gap-1.5">
+          <List className="h-4 w-4" />
+          {t.viewList}
+        </span>
+      </ViewChip>
+    </div>
+  );
+}
+
+function ProposalDayWindowBar({
+  totalSlots,
+  offsetSlots,
+  lengthSlots,
+  segmentClassName,
+  segmentStyle,
+}: {
+  totalSlots: number;
+  offsetSlots: number;
+  lengthSlots: number;
+  segmentClassName?: string;
+  segmentStyle?: CSSProperties;
+}) {
+  const leftPct = (offsetSlots / totalSlots) * 100;
+  const widthPct = (lengthSlots / totalSlots) * 100;
+  return (
+    <div
+      className="relative h-5 min-w-0 flex-1 overflow-hidden rounded border border-border/70 bg-slate-100"
+      style={{
+        backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent calc(100% / ${totalSlots} - 1px), rgba(148, 163, 184, 0.35) calc(100% / ${totalSlots}))`,
+      }}
+    >
+      <div
+        className={cn("absolute inset-y-0.5 rounded-sm", segmentClassName)}
+        style={{ left: `${leftPct}%`, width: `${widthPct}%`, ...segmentStyle }}
+      />
+    </div>
+  );
+}
+
 function OrganizerFeedbackCalendar({
   language,
   view,
@@ -609,6 +662,7 @@ function OrganizerFeedbackCalendar({
   const [detailProposalId, setDetailProposalId] = useState<string | null>(null);
   const [detailAnchor, setDetailAnchor] = useState<DOMRect | null>(null);
   const [busySavingFinals, setBusySavingFinals] = useState(false);
+  const [viewMode, setViewMode] = useState<ProposalViewMode>("calendar");
   const [toast, setToast] = useState("");
   const closed = Boolean(view.meeting.closedAt);
   const detailResult = detailProposalId ? view.proposalResults.find((result) => result.id === detailProposalId) : undefined;
@@ -679,13 +733,11 @@ function OrganizerFeedbackCalendar({
             </>
           )}
         </div>
+        <ViewModeToggle mode={viewMode} onChange={setViewMode} language={language} />
       </div>
       <div className={cn("grid gap-4", closed && "xl:grid-cols-[minmax(0,1fr)_320px]")}>
-        <OrganizerFeedbackGrid
-          language={language}
-          view={view}
-          selectedFinalIds={selectedFinalIds}
-          onOpenDetails={(proposalId, anchor) => {
+        {(() => {
+          const openDetails = (proposalId: string, anchor: DOMRect) => {
             setDetailProposalId((currentProposalId) => {
               if (currentProposalId === proposalId) {
                 setDetailAnchor(null);
@@ -695,8 +747,13 @@ function OrganizerFeedbackCalendar({
               setDetailAnchor(anchor);
               return proposalId;
             });
-          }}
-        />
+          };
+          return viewMode === "calendar" ? (
+            <OrganizerFeedbackGrid language={language} view={view} selectedFinalIds={selectedFinalIds} onOpenDetails={openDetails} />
+          ) : (
+            <OrganizerProposalList language={language} view={view} selectedFinalIds={selectedFinalIds} onOpenDetails={openDetails} />
+          );
+        })()}
         {closed && (
           <div className="rounded-lg border border-border bg-white p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -845,7 +902,7 @@ function OrganizerFeedbackRow({
               day.isMonday && "border-l-4 border-l-primary",
               proposal && "border-slate-500 shadow-inner",
               !proposal && "bg-white",
-              isFinal && "ring-2 ring-accent ring-inset",
+              isFinal && "ring-2 ring-amber-300 ring-inset",
             )}
             style={proposal ? feedbackCellStyle(result?.approvalRatio ?? 0, isFinal) : undefined}
           >
@@ -872,6 +929,76 @@ function OrganizerFeedbackRow({
         );
       })}
     </>
+  );
+}
+
+function OrganizerProposalList({
+  language,
+  view,
+  selectedFinalIds,
+  onOpenDetails,
+}: {
+  language: Language;
+  view: OrganizerMeetingView;
+  selectedFinalIds: string[];
+  onOpenDetails: (proposalId: string, anchor: DOMRect) => void;
+}) {
+  const zone = view.meeting.data.editorTimeZone;
+  const duration = view.meeting.data.durationMinutes;
+  const proposals = view.meeting.data.proposals;
+  const window = proposalDayWindow(proposals, duration, zone);
+  const groups = groupProposalsByDay(proposals, duration, zone, language, window);
+  const resultById = new Map(view.proposalResults.map((result) => [result.id, result]));
+
+  return (
+    <div className="space-y-4">
+      {groups.map((group) => (
+        <div key={group.date}>
+          <div className="mb-1.5 text-sm font-semibold capitalize text-muted-foreground">{group.label}</div>
+          <div className="space-y-1.5">
+            {group.entries.map((entry) => {
+              const result = resultById.get(entry.proposal.id);
+              const isFinal = selectedFinalIds.includes(entry.proposal.id);
+              const total = result ? result.approvedBy.length + result.declinedBy.length : 0;
+              const ratio = result?.approvalRatio ?? 0;
+              return (
+                <button
+                  key={entry.proposal.id}
+                  type="button"
+                  onClick={(event) => onOpenDetails(entry.proposal.id, event.currentTarget.getBoundingClientRect())}
+                  className={cn(
+                    "flex w-full flex-col gap-1.5 rounded-md border px-3 py-2 text-left transition hover:bg-muted/40",
+                    isFinal ? "border-accent bg-accent/10 ring-2 ring-accent ring-inset" : "border-border bg-white",
+                  )}
+                >
+                  <span className="flex items-center justify-between gap-2 text-sm">
+                    <span className="flex items-center gap-2 font-medium tabular-nums">
+                      <span className="text-muted-foreground">#{entry.number}</span>
+                      {entry.timeRange}
+                    </span>
+                    <span className="shrink-0 font-semibold">
+                      {result?.approvalCount ?? 0}/{total} ({Math.round(ratio * 100)}%)
+                    </span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <ProposalDayWindowBar
+                      totalSlots={window.totalSlots}
+                      offsetSlots={entry.offsetSlots}
+                      lengthSlots={entry.lengthSlots}
+                      segmentClassName="border border-slate-500/40"
+                      segmentStyle={feedbackCellStyle(ratio, isFinal)}
+                    />
+                  </div>
+                  <span className="block h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                    <span className="block h-full rounded-full bg-amber-400" style={{ width: `${ratio * 100}%` }} />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -1123,6 +1250,7 @@ function VoteForm({ language, view, participantId, reload }: { language: Languag
   const [name, setName] = useState(view.participantVote?.data.participantName ?? "");
   const [selected, setSelected] = useState<string[]>(closed ? (view.participantVote?.data.selectedProposalIds ?? []) : []);
   const [busy, setBusy] = useState(false);
+  const [viewMode, setViewMode] = useState<ProposalViewMode>("calendar");
   const [toast, setToast] = useState("");
   const finalIds = new Set(view.finalProposalIds);
   const canSubmit = name.trim().length > 0 && !busy;
@@ -1208,16 +1336,31 @@ function VoteForm({ language, view, participantId, reload }: { language: Languag
             </div>
           )}
         </div>
-        <p className="mb-3 text-sm text-muted-foreground">{t.voteInstruction}</p>
-        <ParticipantCalendar
-          language={language}
-          proposals={view.proposals}
-          durationMinutes={view.durationMinutes}
-          selected={selected}
-          setSelected={setSelected}
-          disabled={closed}
-          finalProposalIds={view.finalProposalIds}
-        />
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">{t.voteInstruction}</p>
+          <ViewModeToggle mode={viewMode} onChange={setViewMode} language={language} />
+        </div>
+        {viewMode === "calendar" ? (
+          <ParticipantCalendar
+            language={language}
+            proposals={view.proposals}
+            durationMinutes={view.durationMinutes}
+            selected={selected}
+            setSelected={setSelected}
+            disabled={closed}
+            finalProposalIds={view.finalProposalIds}
+          />
+        ) : (
+          <ParticipantProposalList
+            language={language}
+            proposals={view.proposals}
+            durationMinutes={view.durationMinutes}
+            selected={selected}
+            setSelected={setSelected}
+            disabled={closed}
+            finalProposalIds={view.finalProposalIds}
+          />
+        )}
       </section>
     </div>
   );
@@ -1336,9 +1479,9 @@ function ParticipantCalendarRow({
               active && "bg-primary/75 text-primary-foreground hover:bg-primary/85",
               active && isProposalStart && "bg-primary hover:bg-primary/90",
               disabled && proposal && !isFinal && "opacity-45",
-              isFinal && "bg-primary/25 opacity-100",
-              isFinal && active && "bg-primary text-primary-foreground",
+              isFinal && "opacity-100 ring-2 ring-amber-300 ring-inset",
             )}
+            style={isFinal ? feedbackCellStyle(0, true) : undefined}
             onClick={() => proposal && onToggle(proposal.id)}
           >
             {isProposalStart && proposal ? (
@@ -1351,6 +1494,76 @@ function ParticipantCalendarRow({
         );
       })}
     </>
+  );
+}
+
+function ParticipantProposalList({
+  language,
+  proposals,
+  durationMinutes,
+  selected,
+  setSelected,
+  disabled,
+  finalProposalIds,
+}: {
+  language: Language;
+  proposals: Proposal[];
+  durationMinutes: number;
+  selected: string[];
+  setSelected: (selected: string[]) => void;
+  disabled: boolean;
+  finalProposalIds: string[];
+}) {
+  const zone = getBrowserTimeZone();
+  const window = proposalDayWindow(proposals, durationMinutes, zone);
+  const groups = groupProposalsByDay(proposals, durationMinutes, zone, language, window);
+  const finalIds = new Set(finalProposalIds);
+
+  function toggle(proposalId: string) {
+    if (disabled) return;
+    setSelected(selected.includes(proposalId) ? selected.filter((id) => id !== proposalId) : [...selected, proposalId]);
+  }
+
+  return (
+    <div className="space-y-4">
+      {groups.map((group) => (
+        <div key={group.date}>
+          <div className="mb-1.5 text-sm font-semibold capitalize text-muted-foreground">{group.label}</div>
+          <div className="space-y-1.5">
+            {group.entries.map((entry) => {
+              const active = selected.includes(entry.proposal.id);
+              const isFinal = finalIds.has(entry.proposal.id);
+              return (
+                <button
+                  key={entry.proposal.id}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => toggle(entry.proposal.id)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition disabled:cursor-default",
+                    active ? "border-primary bg-primary/10" : "border-border bg-white hover:bg-muted/50",
+                    disabled && !active && !isFinal && "opacity-60",
+                    isFinal && "ring-2 ring-accent ring-inset",
+                  )}
+                >
+                  <span className="flex w-32 shrink-0 items-center gap-1.5 text-sm font-medium tabular-nums">
+                    {active ? <Check className="h-4 w-4 shrink-0 text-primary" /> : <span className="h-4 w-4 shrink-0" />}
+                    {entry.timeRange}
+                  </span>
+                  <ProposalDayWindowBar
+                    totalSlots={window.totalSlots}
+                    offsetSlots={entry.offsetSlots}
+                    lengthSlots={entry.lengthSlots}
+                    segmentClassName={cn(active ? "bg-primary" : "bg-slate-400")}
+                  />
+                  <span className="w-7 shrink-0 text-right text-xs text-muted-foreground">#{entry.number}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -1739,6 +1952,74 @@ function participantTimeSlots(proposals: Proposal[], durationMinutes: number, ti
   const endMinutes = Math.min(24 * 60, Math.ceil(Math.max(...intervals.map((interval) => interval.end)) / 15) * 15);
 
   return timeSlots(timeFromMinutes(startMinutes), timeFromMinutes(Math.max(endMinutes, startMinutes + 15)));
+}
+
+type DayWindow = { startMin: number; endMin: number; totalSlots: number };
+
+function proposalDayWindow(proposals: Proposal[], durationMinutes: number, timeZone: string): DayWindow {
+  if (proposals.length === 0) return { startMin: 540, endMin: 600, totalSlots: 4 };
+
+  const intervals = proposals.map((proposal) => ({
+    start: minutesFromTime(utcIsoToZonedParts(proposal.startsAtUtc, timeZone).time),
+    end: minutesFromTime(utcIsoToZonedParts(addMinutesIso(proposal.startsAtUtc, durationMinutes), timeZone).time),
+  }));
+  const startMin = Math.max(0, Math.floor(Math.min(...intervals.map((interval) => interval.start)) / 15) * 15);
+  const rawEnd = Math.min(24 * 60, Math.ceil(Math.max(...intervals.map((interval) => interval.end)) / 15) * 15);
+  const endMin = Math.max(rawEnd, startMin + 15);
+  return { startMin, endMin, totalSlots: (endMin - startMin) / 15 };
+}
+
+type ProposalListEntry = {
+  proposal: Proposal;
+  number: number;
+  timeRange: string;
+  offsetSlots: number;
+  lengthSlots: number;
+};
+
+type ProposalDayGroup = { date: string; label: string; entries: ProposalListEntry[] };
+
+function groupProposalsByDay(
+  proposals: Proposal[],
+  durationMinutes: number,
+  timeZone: string,
+  language: Language,
+  window: DayWindow,
+): ProposalDayGroup[] {
+  const locale = language === "de" ? "de-DE" : "en-US";
+  const numbers = new Map(
+    [...proposals]
+      .sort((a, b) => a.startsAtUtc.localeCompare(b.startsAtUtc))
+      .map((proposal, index) => [proposal.id, index + 1] as const),
+  );
+
+  const byDate = new Map<string, Proposal[]>();
+  for (const proposal of proposals) {
+    const date = utcIsoToZonedParts(proposal.startsAtUtc, timeZone).date;
+    const list = byDate.get(date);
+    if (list) list.push(proposal);
+    else byDate.set(date, [proposal]);
+  }
+
+  return [...byDate.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, items]) => ({
+      date,
+      label: new Intl.DateTimeFormat(locale, { weekday: "long", day: "2-digit", month: "long" }).format(localDateFromIsoDate(date)),
+      entries: items
+        .sort((a, b) => a.startsAtUtc.localeCompare(b.startsAtUtc))
+        .map((proposal) => {
+          const startTime = utcIsoToZonedParts(proposal.startsAtUtc, timeZone).time;
+          const endTime = utcIsoToZonedParts(addMinutesIso(proposal.startsAtUtc, durationMinutes), timeZone).time;
+          return {
+            proposal,
+            number: numbers.get(proposal.id) ?? 0,
+            timeRange: `${startTime} – ${endTime}`,
+            offsetSlots: (minutesFromTime(startTime) - window.startMin) / 15,
+            lengthSlots: durationMinutes / 15,
+          };
+        }),
+    }));
 }
 
 function timeSlots(dayStart: string, dayEnd: string): string[] {
